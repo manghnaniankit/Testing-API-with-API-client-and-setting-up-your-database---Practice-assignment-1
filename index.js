@@ -1,51 +1,93 @@
-// API: Retrieve Students Above Threshold
-// ---------------------------------------
-// Task:
-// Implement an API to fetch students whose total marks exceed a given threshold.
-//
-// Endpoint:
-// POST /students/above-threshold
-//
-// Request Body:
-// {
-//   "threshold": <number>
-// }
-//
-// Response:
-// Success: List of students with their names and total marks who meet the criteria.
-// Example:
-// {
-//   "count": 2,
-//   "students": [
-//     { "name": "Alice Johnson", "total": 433 },
-//     { "name": "Bob Smith", "total": 410 }
-//   ]
-// }
-//
-// No Matches:
-// {
-//   "count": 0,
-//   "students": []
-// }
-//
-// Purpose:
-// Help teachers retrieve and analyze student performance efficiently.
-
-
 const express = require('express');
-const { resolve } = require('path');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const port = 3010;
+const PORT = process.env.PORT || 3000;
 
-app.use(express.static('static'));
+app.use(express.json());
 
+// Path to data.json
+const DATA_FILE = path.join(__dirname, 'data.json');
+
+// Function to read data from data.json
+const loadData = () => {
+    try {
+        const data = fs.readFileSync(DATA_FILE);
+        return JSON.parse(data);
+    } catch (error) {
+        return [];
+    }
+};
+
+// Function to write data to data.json
+const saveData = (data) => {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+};
+
+// GET: Fetch all users
+app.get('/users', (req, res) => {
+    const users = loadData();
+    res.json(users);
+});
+
+// POST: Add a new user
+app.post('/users', (req, res) => {
+    const users = loadData();
+    const { name, age } = req.body;
+
+    if (!name || !age) {
+        return res.status(400).json({ error: "Name and age are required" });
+    }
+
+    const newUser = { id: users.length + 1, name, age };
+    users.push(newUser);
+    saveData(users);
+
+    res.status(201).json({ message: "User added successfully", user: newUser });
+});
+
+// PUT: Update a user by ID
+app.put('/users/:id', (req, res) => {
+    let users = loadData();
+    const { id } = req.params;
+    const { name, age } = req.body;
+
+    const userIndex = users.findIndex(user => user.id === parseInt(id));
+    if (userIndex === -1) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    users[userIndex] = { id: parseInt(id), name, age };
+    saveData(users);
+
+    res.json({ message: "User updated successfully", user: users[userIndex] });
+});
+
+// DELETE: Remove a user by ID
+app.delete('/users/:id', (req, res) => {
+    let users = loadData();
+    const { id } = req.params;
+
+    const filteredUsers = users.filter(user => user.id !== parseInt(id));
+
+    if (filteredUsers.length === users.length) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    saveData(filteredUsers);
+    res.json({ message: "User deleted successfully" });
+});
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'static')));
+
+// Serve the index.html file for the root route
 app.get('/', (req, res) => {
-  res.sendFile(resolve(__dirname, 'pages/index.html'));
+    res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
 
-app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
-
-
